@@ -1,0 +1,68 @@
+#!/usr/bin/env perl
+use strict; use warnings;
+use feature 'say';
+
+use App::AFNI::SemainsPhysio;
+use Pod::Usage;
+use feature 'say';
+
+=head1 NAME
+
+semphysdat - chop physio files to MR timing for AFNI's retroTS
+
+=head1 SYNOPSIS
+
+semphysdat [options] phsyiofile1 physiofile2 MRdir/
+
+Options:
+
+  -s [alt+z],alt-z,seq+z,seq-z,filename
+
+=head1 DESCRIPTION
+
+B<semphysdat> will chop two physio files given timing of DICOMS in MRdir and save in a format RetroTS.m likes.
+
+
+=head2 See also
+
+B<SYNOPSYS> of C<perldoc App::AFNI::SemainsPhysio;> for more.
+
+=cut
+
+
+# check for inputs
+# TODO: write as POD, add option for sliceOrder 
+pod2usage(1) if $#ARGV<2;
+for (@ARGV) { die "cannot read '$_'" if ! -r $_ }
+
+
+# read in arguments
+my $sliceOrder='alt+z';
+if ($ARGV[0] eq "-s") {
+ shift @ARGV;
+ $sliceOrder=shift @ARGV;
+}
+
+my ($pfile1,$pfile2,@MRs) = @ARGV;
+
+
+# intialize object
+my $p = SemainsPhysio->new({VERB=>1,sliceOrder=>$sliceOrder});
+
+# read in MR
+if ( -d $MRs[0] ){
+   $p->readMRdir($MRs[0]);
+   warn "only using first MR directory ($MRs[0])"  if $#MRs>0;
+} else {
+   die "using MRfiles is not implemented!\nln -s the files into a directory and use that";
+}
+
+# read in the physio files
+for(@ARGV[0..1]){
+   $p->readPhysio($_);
+   $p->writeMRPhys;
+}
+
+# get RVT
+$p->retroTS()
+
