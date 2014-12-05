@@ -13,6 +13,10 @@ semphysdat - chop physio files to MR timing for AFNI's retroTS
 
 =head1 SYNOPSIS
 
+=begin html
+<img src="https://raw.githubusercontent.com/LabNeuroCogDevel/semphysdat/master/icon.png"></img>
+=end html
+
 semphysdat [options] phsyiofile1 physiofile2 MRdir/
 
 Options:
