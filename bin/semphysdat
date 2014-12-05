@@ -4,6 +4,7 @@ use feature 'say';
 
 use App::AFNI::SemainsPhysio;
 use Pod::Usage;
+use Getopt::Long;
 use feature 'say';
 
 =head1 NAME
@@ -17,6 +18,8 @@ semphysdat [options] phsyiofile1 physiofile2 MRdir/
 Options:
 
   -s [alt+z],alt-z,seq+z,seq-z,filename
+  -o prefix
+  -t [matlab]|McRetroTs|show
 
 =head1 DESCRIPTION
 
@@ -30,24 +33,27 @@ B<SYNOPSYS> of C<perldoc App::AFNI::SemainsPhysio;> for more.
 =cut
 
 
-# check for inputs
-# TODO: write as POD, add option for sliceOrder 
-pod2usage(1) if $#ARGV<2;
-for (@ARGV) { die "cannot read '$_'" if ! -r $_ }
 
 
 # read in arguments
+my $type      ='matlab';
+my $oprefix   ='';
 my $sliceOrder='alt+z';
-if ($ARGV[0] eq "-s") {
- shift @ARGV;
- $sliceOrder=shift @ARGV;
-}
 
+GetOptions('type:s'=>\$type, 
+           'oprefix:s'=>\$oprefix,
+           'sliceOrder:s'=>\$sliceOrder,
+           ) or pod2usage(1);
+
+# now that we've removed the options
+# check for inputs
+pod2usage(1) if $#ARGV<2;
+for (@ARGV) { die "cannot read  '$_', should be physio file or MR dir:" if ! -r $_ }
 my ($pfile1,$pfile2,@MRs) = @ARGV;
 
 
 # intialize object
-my $p = SemainsPhysio->new({VERB=>1,sliceOrder=>$sliceOrder});
+my $p = App::AFNI::SemainsPhysio->new({VERB=>1,sliceOrder=>$sliceOrder, prefix=>$oprefix});
 
 # read in MR
 if ( -d $MRs[0] ){
@@ -64,5 +70,5 @@ for(@ARGV[0..1]){
 }
 
 # get RVT
-$p->retroTS()
+$p->retroTS($type)
 

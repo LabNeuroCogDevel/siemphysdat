@@ -5,6 +5,7 @@ use strict;
 use warnings;
 use Carp;
 use List::MoreUtils qw/minmax uniq/;
+use File::Basename;
 use feature 'say';
 
 
@@ -34,7 +35,7 @@ Get slice based respiration volume per time (RVT) regressors from physio collect
   $p->writeMRPhys;
 
   # 
-  $p->retroTS()
+  $p->retroTS('matlab')
 
   # we could get the raw data 
   #   in this case, card was resp was loaded last
@@ -102,7 +103,8 @@ sub new {
   my $self  = shift;
   # default to MDH becaues MPCPU doesn't align to MR time
   my %defaults = (
-   timetyp   => 'MDH', # MPCU|MDH
+   #run       => 'matlab', # matlab|McRetroTs|none
+   timetyp   => 'MDH',    # MPCU|MDH
 
    PhRate =>'.02',
    # parameters of the acquisition. 
@@ -330,6 +332,15 @@ sub writeMRPhys {
  my $self=shift;
  my $outfile = shift;
  $outfile="$self->{protocol}_$self->{Series}.$self->{ptype}.dat" if ! $outfile;
+ 
+ # if we provided a prefix
+ if($self->{prefix}){
+   # get dir
+   my $bn=dirname($self->{prefix});
+   croak "prefix directory ($bn) does not exist!" if ! -d $bn;
+   $outfile=$self->{prefix}.$outfile;
+ }
+
  $self->{dat}->{$self->{ptype}}=$outfile;
 
  my @pvals = $self->getMRPhys;
@@ -347,7 +358,20 @@ sub writeMRPhys {
 get/run command to get Resp. Vol./Time (RVT) via AFNI's retroTS a la http://www.ncbi.nlm.nih.gov/pmc/articles/PMC2715870/
 MUST have already read MR and written card and resp dat files
 
-  $p->retroTS
+  $p->retroTS('matlab')
+
+how this step is handled is defined by the first argument
+
+
+=over
+
+=item matlab: use RetroTS.m
+
+=item McRetroTs: use compiled matlab verson of RetroTS.m
+
+=item show|undef: print commands for both matlab and McRetroTS
+
+=back
 
 
 =head3 External Commands
@@ -371,6 +395,7 @@ if using matlab+retroTS, the path to retroTS.m should be in your MATLABPATH
 
 sub retroTS {
  my $self=shift;
+ my $runtype=shift;
 
  # we need to have both data types
  croak "need writeMRPhys for both puls and resp" 
@@ -388,19 +413,37 @@ sub retroTS {
  # McRetroTS Respdatafile ECGdatafile VolTR Nslices SamplingFreq(PhysFS) ShowGraphs
  my @mcrts = qw/Opts.Respfile Opts.Cardfile Opts.VolTR Opts.Nslices Opts.PhysFS/;
  my $mccmd =  "McRetroTs @params{@mcrts}";
- say $mccmd;
+ say $mccmd if $runtype !~ /matlab|McRetroTs/g ;;
 
 
  # if have matlab and singal toolbox, can use this
  my $cmd = join("; ", map { join("=",$_,$params{$_}) } keys %params);
  $cmd .= "; rts = RetroTS(Opts)";
- $cmd .= "";
+ my $matlabwrap= qq/matlab -nodisplay -r "try; $cmd; catch err; err, exit(1); end; quit;"/;
 
- my $matlabwrap= qq/matlab -nodisplay -r "try; $cmd; catch; exit(666); end; quit;"/;
- say $matlabwrap;
+ say $matlabwrap if $runtype !~ /matlab|McRetroTs/i;
  # matlab -nodisplay -r "try; Opts.Cardfile='rest_164627.359000.puls.dat'; Opts.VolTR=1.5; Opts.Nslices=29; Opts.SliceOrder='alt+z'; Opts.PhysFS=50.0074711455304; Opts.Respfile='rest_164627.359000.resp.dat'; rts = RetroTS(Opts); catch; exit(666); end; quit;"
 
  # with either command, the output will be "oba.slibase.1D"
+ my $outputname = $self->{dat}->{resp};
+ $outputname =~ s/.resp$/.slibase.1D/;
+ 
+ # or rename to specified input
+ #my $outputname=shift if $#_;
+ 
+ 
+ my $runcmd="";
+ if($runtype =~ /matlab/i){
+  $runcmd=$matlabwrap
+ }elsif($runtype =~ /McRetroTs/i){
+  $runcmd=$mccmd;
+ }
+
+ system($runcmd) if $runcmd;
+
+ if( $runcmd && ! -e "" ){
+   croak "failed to run $runcmd";
+ }
 }
 
 
