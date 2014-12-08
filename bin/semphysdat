@@ -11,21 +11,35 @@ use feature 'say';
 
 semphysdat - chop physio files to MR timing for AFNI's retroTS
 
+
 =head1 SYNOPSIS
 
-=begin html
-<img src="https://raw.githubusercontent.com/LabNeuroCogDevel/semphysdat/master/icon.png"></img>
-=end html
 
 semphysdat [options] phsyiofile1 physiofile2 MRdir/
 
 Options:
 
-  -s [alt+z],alt-z,seq+z,seq-z,filename
-  -o prefix
-  -t [matlab]|McRetroTs|show
+  -s [alt+z],alt-z,seq+z,seq-z,filename # slice order
+
+  -o prefix                             # where to save files,
+                                           trailing slash are important
+
+  -r [matlab]|McRetroTs|                # retoTS method
+     show    | none 
+
+-r none is useful if you only want the *dat files
+
+=head1 OUTPUT
+
+*dat and *slibase.1D
+
+
 
 =head1 DESCRIPTION
+
+=begin html
+<img src="https://raw.githubusercontent.com/LabNeuroCogDevel/semphysdat/master/icon.png"></img>
+=end html
 
 B<semphysdat> will chop two physio files given timing of DICOMS in MRdir and save in a format RetroTS.m likes.
 
@@ -44,7 +58,7 @@ my $type      ='matlab';
 my $oprefix   ='';
 my $sliceOrder='alt+z';
 
-GetOptions('type:s'=>\$type, 
+GetOptions('retrotype:s'=>\$type, 
            'oprefix:s'=>\$oprefix,
            'sliceOrder:s'=>\$sliceOrder,
            ) or pod2usage(1);

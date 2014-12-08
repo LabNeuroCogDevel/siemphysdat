@@ -369,7 +369,9 @@ how this step is handled is defined by the first argument
 
 =item McRetroTs: use compiled matlab verson of RetroTS.m
 
-=item show|undef: print commands for both matlab and McRetroTS
+=item show: print commands for both matlab and McRetroTS
+
+=item none: do nothing (why'd you call me then!?)
 
 =back
 
@@ -396,6 +398,7 @@ if using matlab+retroTS, the path to retroTS.m should be in your MATLABPATH
 sub retroTS {
  my $self=shift;
  my $runtype=shift;
+ return if $runtype and $runtype =~ /none/i;
 
  # we need to have both data types
  croak "need writeMRPhys for both puls and resp" 
