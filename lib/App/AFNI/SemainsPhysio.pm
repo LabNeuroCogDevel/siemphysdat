@@ -421,15 +421,16 @@ sub retroTS {
 
  # if have matlab and singal toolbox, can use this
  my $cmd = join("; ", map { join("=",$_,$params{$_}) } keys %params);
- $cmd .= "; rts = RetroTS(Opts)";
- my $matlabwrap= qq/matlab -nodisplay -r "try; $cmd; catch err; err, exit(1); end; quit;"/;
+ $cmd .= "; Opts.ShowGraphs=0;Opts.Quiet=0;"; # turn off graphs, turn on verbose
+ $cmd .= " rts = RetroTS(Opts)";
+ my $matlabwrap= qq/matlab -nodisplay -r "try; $cmd; catch err; err, exit(1); end; rts, quit;"/;
 
  say $matlabwrap if $runtype !~ /matlab|McRetroTs/i;
  # matlab -nodisplay -r "try; Opts.Cardfile='rest_164627.359000.puls.dat'; Opts.VolTR=1.5; Opts.Nslices=29; Opts.SliceOrder='alt+z'; Opts.PhysFS=50.0074711455304; Opts.Respfile='rest_164627.359000.resp.dat'; rts = RetroTS(Opts); catch; exit(666); end; quit;"
 
  # with either command, the output will be "oba.slibase.1D"
  my $outputname = $self->{dat}->{resp};
- $outputname =~ s/.resp$/.slibase.1D/;
+ $outputname =~ s/.resp.dat$/.slibase.1D/;
  
  # or rename to specified input
  #my $outputname=shift if $#_;
@@ -444,8 +445,11 @@ sub retroTS {
 
  system($runcmd) if $runcmd;
 
- if( $runcmd && ! -e "" ){
+ if( $runcmd && ! -e "oba.slibase.1D" ){
    croak "failed to run $runcmd";
+ } else {
+   # move file to output name if told to
+   rename "oba.slibase.1D", $outputname if $outputname;
  }
 }
 

@@ -14,6 +14,17 @@ RESP Freq Per: 20 2860
 ```
 
 
+## Usage
+
+```bash
+seamphysdat respfile pulsefile MRdir
+```
+
+look for new `*dat` (chopped physio) and `*slibase.1D` (RVT regressors, ready for `-ricor` in `afni_proc.py`) files
+
+see `semphysdat -h`, `perldoc semphysdat`, or `./prepareForDemo.bash` for more help
+
+
 ## Install
 
 ```bash
@@ -28,20 +39,17 @@ dzil build
 dzil install
 ```
 
-## Usage
-
-```bash
-seamphysdat respfile pulsefile MRdir
-```
-
-look for new `*dat` (chopped physio) and `*slibase.1D` (RVT regressors) files
-
-see `perldoc semphysdat`
-
 
 ## Trouble Shooting
 ### RetroTS.m in path
-You should have [afni's matlab scripts](http://afni.nimh.nih.gov/afni/matlab/) and they should be your [`MATLABPATH`](http://www.mathworks.com/help/matlab/ref/path.html) (e.g. `export MATLABPATH="$HOME/afni_matlab:$MATLABPATH"`)
+You should have [afni's matlab scripts](http://afni.nimh.nih.gov/afni/download/afnimatlab/releases/latest) and they should be your [`MATLABPATH`](http://www.mathworks.com/help/matlab/ref/path.html) (e.g. `export MATLABPATH="$HOME/afni_matlab:$MATLABPATH"`)
+
+### dicom_hinfo in path
+[`dicom_hinfo`](http://afni.nimh.nih.gov/pub/dist/doc/program_help/dicom_hinfo.html) from [AFNI](http://afni.nimh.nih.gov/afni/download) is used to read slice timing, TR, and MR times. This must be in `PATH`. 
+
+See `which dicom_hinfo` to check.
 
 ### Example/Practice
-try data included in [`data/`](data/). NB. will not work b/c MR count is wrong
+run `./prepareForDemo.bash` and follow instructions.
+
+works on files included in [`data/`](data/).
