@@ -84,15 +84,42 @@ initialize object
 
 =over
 
-=item timetype: MDH (default) | MPCU
+=item timetype
 
-=item PhRate (defaults to .2)
+MDH (default) or MPCU
 
-=item pulsStart and respStart: numeric sequence to be remove, also identifies stream type
+=item PhRate 
 
-=item sliceOrder: alt+z (default)
+Physio sample rate
+defaults to .2
 
-=item VERB: set to true to be verbose
+=item pulsStart and respStart
+numeric sequence to be remove, also identifies stream type
+
+defaults:
+
+  pulsStart =>'1 2 40 280'
+  respStart =>'1 2 20 2'
+
+
+=item sliceOrder
+
+alt+z (default)
+other options: alt-z,seq+z,seq-z,filename # slice order
+
+=item VERB
+
+set to true to be verbose, defaults false
+
+=item trustIdx
+
+don't check sample rate and index count against end-start time
+  none=> check both
+  MR  => trust MR (TR)
+  phys=> trust physio (PhRate as set by init)
+  all => trust both
+
+Note: just have to match reg exp, so MRphys is same as all
 
 =back 
 
@@ -113,6 +140,7 @@ sub new {
    respStart =>'1 2 20 2',
    sliceOrder => 'alt+z',
    VERB=>0,
+   trustIdx=>'none',
 
   );
   # use defaults when we didn't set anything
@@ -199,8 +227,11 @@ sub readPhysio {
 
    
    # reset rate if its only off by a very small amount
+   # and we don't trust the sample rate we provided
    my $newrate = abs($self->{physStart}- $self->{physEnd})/$#{$self->{measures}};
-   $self->{PhRate} = $newrate if abs($newrate-$self->{PhRate}) < .00001;
+   $self->{PhRate} = $newrate 
+     if abs($newrate-$self->{PhRate}) < .00001  and
+        $self->{trustIdx}!~/All|Phys/i;
 
 
    say "file is $self->{ptype} with $#{$self->{measures}} samples, " ,
@@ -212,7 +243,7 @@ sub readPhysio {
    timeCheck($self->{physStart},
              $self->{physEnd},
              $#{$self->{measures}},
-             $self->{PhRate} );
+             $self->{PhRate} ) unless $self->{trustIdx}=~/All|Phys/i;
 }
 
 
@@ -308,7 +339,7 @@ sub readMRdir {
  timeCheck($self->{MRstart},
            $self->{MRend},
            $self->{nDcms},
-           $self->{TR})
+           $self->{TR}) unless $self->{trustIdx}=~/All|MR/i;
 }
 
 =head2 writeMRPhys

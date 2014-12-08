@@ -1,6 +1,6 @@
 # semphysdat <img height=100 widht=100 align=right src=https://raw.githubusercontent.com/LabNeuroCogDevel/semphysdat/master/icon.png>
 
-Utility to chop physio measures from Semian's scanner by MR times and generate RVT regressors for a single MR protocol with AFNI's `RetroTS.m`
+Utility to chop physio measures (voltages) from Siemens Physiologic Monitoring Unit (PMU) and generate RVT regressors for a single MR protocol with AFNI's `RetroTS.m`
 
 This is for you if you want  `1D` inputs for `3dretroicor` or `afni_proc.py` (`ricor` block) and have physio recordings (`*.resp` and `*.puls`) files the look like [this](data/wpc4951_10824_20111108_110811.puls):
 
@@ -56,3 +56,8 @@ You should have [afni's matlab scripts](http://afni.nimh.nih.gov/afni/download/a
 
 See `which dicom_hinfo` to check.
 
+## See Also/Alternatives
+as described by the [Aguirre Lab @ UPenn](https://cfn.upenn.edu/aguirre/wiki/public:pulse-oximetry_during_fmri_scanning)
+ * http://www.nitrc.org/projects/voxbo/
+ * https://cfn.upenn.edu/aguirre/public/exvolt/
+ * https://cfn.upenn.edu/aguirre/wiki/public:pulsecomplete_source

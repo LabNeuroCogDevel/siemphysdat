@@ -15,11 +15,12 @@ semphysdat - chop physio files to MR timing for AFNI's retroTS
 =head1 SYNOPSIS
 
 
-semphysdat [options] phsyiofile1 physiofile2 MRdir/
+ semphysdat [options] phsyiofile1 physiofile2 MRdir/
 
 Options:
 
-  -s [alt+z],alt-z,seq+z,seq-z,filename # slice order
+  -s [alt+z],alt-z,seq+z,               # slice order
+     seq-z,filename 
 
   -o prefix                             # where to save files,
                                         # trailing slash are important
@@ -27,7 +28,15 @@ Options:
   -r [matlab]|McRetroTs|                # retoTS method
      show    | none 
 
--r none is useful if you only want the *dat files
+  -t [none],MR,Phys,all                 # trust times&samplerate
+                                        # dont compare to index count
+
+
+C<-r none> is useful if you only want the *dat files
+
+C<-t MR> is useful for testing against data/
+
+C<-t Phys> is useful for forcing a sampling rate
 
 =head1 OUTPUT
 
@@ -69,10 +78,12 @@ App::AFNI::SemainsPhysio
 my $type      ='matlab';
 my $oprefix   ='';
 my $sliceOrder='alt+z';
+my $trustIdx='none';
 
 GetOptions('retrotype:s'=>\$type, 
            'oprefix:s'=>\$oprefix,
            'sliceOrder:s'=>\$sliceOrder,
+           'trustIdx:s'=>\$trustIdx,
            ) or pod2usage(1);
 
 # now that we've removed the options
@@ -83,7 +94,12 @@ my ($pfile1,$pfile2,@MRs) = @ARGV;
 
 
 # intialize object
-my $p = App::AFNI::SemainsPhysio->new({VERB=>1,sliceOrder=>$sliceOrder, prefix=>$oprefix});
+my $p = App::AFNI::SemainsPhysio->new({
+          VERB=>1,
+          sliceOrder=>$sliceOrder, 
+          prefix=>$oprefix, 
+          trustIdx=>$trustIdx
+});
 
 # read in MR
 if ( -d $MRs[0] ){
