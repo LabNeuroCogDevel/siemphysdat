@@ -2,7 +2,7 @@
 
 Utility to chop physio measures from Semian's scanner by MR times and generate RVT regressors for a single MR protocol with AFNI's `RetroTS.m`
 
-This is for you, if you want  `1D` inputs for `3dretroicor` or `afni_proc.py` (`ricor` block) and have physio recordings (.resp and .puls) files the look like [this](data/wpc4951_10824_20111108_110811.puls):
+This is for you if you want  `1D` inputs for `3dretroicor` or `afni_proc.py` (`ricor` block) and have physio recordings (`*.resp` and `*.puls`) files the look like [this](data/wpc4951_10824_20111108_110811.puls):
 
 ```
 1 2 40 280 ...
@@ -17,12 +17,18 @@ RESP Freq Per: 20 2860
 ## Usage
 
 ```bash
-seamphysdat respfile pulsefile MRdir
+semphysdat respfile pulsefile MRdir
 ```
 
 look for new `*dat` (chopped physio) and `*slibase.1D` (RVT regressors, ready for `-ricor` in `afni_proc.py`) files
 
-see `semphysdat -h`, `perldoc semphysdat`, or `./prepareForDemo.bash` for more help
+### Example/Practice
+run [`./prepareForDemo.bash`](prepareForDemo.bash) and follow instructions.
+
+works on files included in [`data/`](data/) and save output to `data/phys`
+
+### Help
+see `semphysdat -h`, `perldoc semphysdat`, or `./prepareForDemo.bash` 
 
 
 ## Install
@@ -50,7 +56,3 @@ You should have [afni's matlab scripts](http://afni.nimh.nih.gov/afni/download/a
 
 See `which dicom_hinfo` to check.
 
-### Example/Practice
-run `./prepareForDemo.bash` and follow instructions.
-
-works on files included in [`data/`](data/).
