@@ -22,7 +22,7 @@ Options:
   -s [alt+z],alt-z,seq+z,seq-z,filename # slice order
 
   -o prefix                             # where to save files,
-                                           trailing slash are important
+                                        # trailing slash are important
 
   -r [matlab]|McRetroTs|                # retoTS method
      show    | none 
@@ -31,22 +31,34 @@ Options:
 
 =head1 OUTPUT
 
-*dat and *slibase.1D
+=over
+
+=item C<*dat> 
+
+chopped volrage meassurements with triggers removed, 
+
+=item C<*slibase.1D> 
+
+RVT from AFNI's RetroTS ready for C<afni_proc.py> or C<3dretroicor>
+
+=back
 
 
 
 =head1 DESCRIPTION
 
 =begin html
+
 <img src="https://raw.githubusercontent.com/LabNeuroCogDevel/semphysdat/master/icon.png"></img>
+
 =end html
 
 B<semphysdat> will chop two physio files given timing of DICOMS in MRdir and save in a format RetroTS.m likes.
 
 
-=head2 See also
+=head2 SEE ALSO
 
-B<SYNOPSYS> of C<perldoc App::AFNI::SemainsPhysio;> for more.
+App::AFNI::SemainsPhysio
 
 =cut
 
