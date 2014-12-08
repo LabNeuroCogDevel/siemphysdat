@@ -34,6 +34,7 @@ cpanm App::AFNI::SemainsPhysio
 Hint: get [cpanm](http://search.cpan.org/~miyagawa/App-cpanminus-1.7019/lib/App/cpanminus.pm) like `curl -L https://cpanmin.us | perl - --sudo App::cpanminus`
 
 ### From this source
+with [Dist::Zilla](http://dzil.org/)
 ```bash
 dzil build
 dzil install
