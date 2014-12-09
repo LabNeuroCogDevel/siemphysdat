@@ -2,14 +2,14 @@
 use strict; use warnings;
 use Test::Simple tests=>17;
 
-use App::AFNI::SemainsPhysio;
+use App::AFNI::SiemensPhysio;
 use feature 'say';
 
 # we dont export these functions, but still want to save some finger work/screen space
-sub getMRAcqSecs { App::AFNI::SemainsPhysio::getMRAcqSecs(@_) };
-sub timeCheck    { App::AFNI::SemainsPhysio::timeCheck(@_)};
-sub timeToSamples{ App::AFNI::SemainsPhysio::timeToSamples(@_) };
-sub sandwichIdx  { App::AFNI::SemainsPhysio::sandwichIdx(@_) };
+sub getMRAcqSecs { App::AFNI::SiemensPhysio::getMRAcqSecs(@_) };
+sub timeCheck    { App::AFNI::SiemensPhysio::timeCheck(@_)};
+sub timeToSamples{ App::AFNI::SiemensPhysio::timeToSamples(@_) };
+sub sandwichIdx  { App::AFNI::SiemensPhysio::sandwichIdx(@_) };
 
 # check that we convert dicom to seconds succesfully
 ok(getMRAcqSecs('000000.0010') == .001);

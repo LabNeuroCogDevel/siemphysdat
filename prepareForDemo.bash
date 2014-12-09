@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 cd $(dirname $0)
 # to save space, github repo only inclues first and last dicom
-# but semphysdat checks time, count, and TR, so we need to match the count
+# but siemphysdat checks time, count, and TR, so we need to match the count
 # we can do this by linking the first file a bunch of times
 MRcnt=$(ls data/MR/*|wc -l)
 if [ $MRcnt -lt 200 ]; then 
@@ -14,10 +14,16 @@ fi
 # (git wont track empty folders)
 [ ! -d data/phys ] && mkdir data/phys/
 
+# exvolt (extract voltage) is a c++ program that should do about the same thing
+#    it is shifted by 340 msecs (17 samples)?
+[ ! -r exvolt ] && wget https://cfn.upenn.edu/aguirre/public/exvolt/exvolt
+# ./exvolt  ../App-AFNI-SiemensPhysio/data/MR ../App-AFNI-SiemensPhysio/data/wpc4951_10824_20111108_110811.resp test.dat
+
+
 echo "
 TRY:
 
-  perl -Ilib bin/semphysdat -o data/phys/ data/wpc4951_10824_20111108_110811.* data/MR/
+  perl -Ilib lib/bin/siemphysdat -o data/phys/ data/wpc4951_10824_20111108_110811.* data/MR/
 
 Then look in data/phys/
 "

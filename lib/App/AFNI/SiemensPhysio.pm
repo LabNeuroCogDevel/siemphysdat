@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-package App::AFNI::SemainsPhysio;
+package App::AFNI::SiemensPhysio;
 use strict; 
 use warnings;
 use Carp;
@@ -13,13 +13,13 @@ use feature 'say';
 
 =head1 NAME
  
-App::AFNI:SemainsPhysio - Physio from Semains into format suitable for AFNI's RetroTS retroicor routine
+App::AFNI:SiemensPhysio - Physio from Siemens into format suitable for AFNI's RetroTS retroicor routine
 
 =head1 SYNOPSIS
 
-Get slice based respiration volume per time (RVT) regressors from physio collected on Semains scanner
+Get slice based respiration volume per time (RVT) regressors from physio collected on Siemens scanner
 
-  my $p = SemainsPhysio->new({VERB=>1});
+  my $p = SiemensPhysio->new({VERB=>1});
   # read MR data (get times, TR, nslices)
   #  looks at all files in this directory with "dicom_hinfo"
   $p->readMRdir('MRRaw/10824_20111108/rest_384x384.21/');
@@ -288,7 +288,7 @@ sub readMRdir {
  croak "$dicomdir is not a directory!" if ! -d $dicomdir;
  my $dcmcmd = "dicom_hinfo -tag 0008,0031 0008,0032 0018,0080 0018,0081 0018,1030  0019,100a $dicomdir/*";
  our @returns =     qw/Filename   Series    AcqTime       TR        ET     protocol nslice/;
- # N.B.  nslices/"Number Of Images In Mosaic" (0019,100a) is Semains specific
+ # N.B.  nslices/"Number Of Images In Mosaic" (0019,100a) is Siemens specific
  # which is okay, because thats the kind of physio we have
 
 
@@ -585,7 +585,9 @@ sub sandwichIdx {
   my $sIdxE = $eIdxE - timeToSamples($meat->[0], $meat->[1],$r );
 
   # are the two the same?
-  croak "inconsistant index calculation: $sIdxS - $eIdxS (ref=start) vs $sIdxE - $eIdxE (ref=end)" 
+  carp "Inconsistant index calculation. ".
+       "Using start time vs end time as ref grabs different sample of measurements\n".
+       "(ref=start) $sIdxS to $eIdxS VS $sIdxE to $eIdxE (ref=end) @ $r secs/sample\n".
        if $sIdxS != $sIdxE || $eIdxS != $eIdxE;
 
   return ($sIdxS,$eIdxS);
