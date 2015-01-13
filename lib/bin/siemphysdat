@@ -2,10 +2,10 @@
 use strict; use warnings;
 use feature 'say';
 
-use App::AFNI::SiemensPhysio;
 use Pod::Usage;
 use Getopt::Long;
 use feature 'say';
+use App::AFNI::SiemensPhysio;
 
 =head1 NAME
 

@@ -385,6 +385,20 @@ sub writeMRPhys {
 
 =head2 retroTS
 
+This is kludgy code hacked together and untested :)
+=over
+
+=item use a bunch of hacks to find the matlab binary
+
+=item construct a matlab call using options in self object
+
+=item execute matlab or McRetroTS 
+
+=item move outputs to fit local naming convention
+
+=back
+
+
 
 get/run command to get Resp. Vol./Time (RVT) via AFNI's retroTS a la http://www.ncbi.nlm.nih.gov/pmc/articles/PMC2715870/
 MUST have already read MR and written card and resp dat files
@@ -392,6 +406,7 @@ MUST have already read MR and written card and resp dat files
   $p->retroTS('matlab')
 
 how this step is handled is defined by the first argument
+
 
 
 =over
@@ -422,6 +437,7 @@ see
 =back
 
 if using matlab+retroTS, the path to retroTS.m should be in your MATLABPATH
+  export MATLABPATH="$HOME/afni_matlab/matlab/:$MATLABPATH"
 
 =cut
 
@@ -430,6 +446,17 @@ sub retroTS {
  my $self=shift;
  my $runtype=shift;
  return if $runtype and $runtype =~ /none/i;
+
+ # default to using matlab
+ my $matlabbin="matlab";
+
+ # find where matlab script points to
+ my $acutalmatlab=`perl -ne 'print \$& if /^.*matlab /' \`which matlab\``;
+ $matlabbin=$acutalmatlab if $acutalmatlab;
+
+ # or use env MATLABBIN
+ $matlabbin= $ENV{MATLABBIN} if $ENV{MATLABBIN};
+
 
  # we need to have both data types
  croak "need writeMRPhys for both puls and resp" 
@@ -454,12 +481,16 @@ sub retroTS {
  my $cmd = join("; ", map { join("=",$_,$params{$_}) } keys %params);
  $cmd .= "; Opts.ShowGraphs=0;Opts.Quiet=0;"; # turn off graphs, turn on verbose
  $cmd .= " rts = RetroTS(Opts)";
- my $matlabwrap= qq/matlab -nodisplay -r "try; $cmd; catch err; err, exit(1); end; rts, quit;"/;
+
+ # we should wrap matlab up in a try+quit so we dont hang in ML command window on a failure
+ my $matlabwrap= qq/$matlabbin -nodisplay -r "try; $cmd; catch err; err, exit(1); end; rts, quit;"/;
 
  say $matlabwrap if $runtype !~ /matlab|McRetroTs/i;
+ # eg
  # matlab -nodisplay -r "try; Opts.Cardfile='rest_164627.359000.puls.dat'; Opts.VolTR=1.5; Opts.Nslices=29; Opts.SliceOrder='alt+z'; Opts.PhysFS=50.0074711455304; Opts.Respfile='rest_164627.359000.resp.dat'; rts = RetroTS(Opts); catch; exit(666); end; quit;"
 
- # with either command, the output will be "oba.slibase.1D"
+ # with either command, the original output name will be "oba.slibase.1D"
+ # change that to our basename (assume resp and puls have same basename, use one from resp)
  my $outputname = $self->{dat}->{resp};
  $outputname =~ s/.resp.dat$/.slibase.1D/;
  
@@ -587,7 +618,7 @@ sub sandwichIdx {
   # are the two the same?
   carp "Inconsistant index calculation. ".
        "Using start time vs end time as ref grabs different sample of measurements\n".
-       "(ref=start) $sIdxS to $eIdxS VS $sIdxE to $eIdxE (ref=end) @ $r secs/sample\n".
+       "(ref=start) $sIdxS to $eIdxS VS $sIdxE to $eIdxE (ref=end) @ $r secs/sample\n"
        if $sIdxS != $sIdxE || $eIdxS != $eIdxE;
 
   return ($sIdxS,$eIdxS);

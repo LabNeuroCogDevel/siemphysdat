@@ -64,3 +64,6 @@ See `which dicom_hinfo` to check.
 
 ## Name
 Think `seam-fizz that`. The icon is a seam and "fizzy bubbles"
+
+# Octave
+`RetroTS.m` works with octave but all afni .m functions must have `|` and `&` replaced with `||` and `&&`
