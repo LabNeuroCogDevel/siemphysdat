@@ -19,6 +19,9 @@ siemphysdat - chop Siemens Physiologic Monitoring Unit (PMU) physio files to MR 
 
 Options:
 
+  -d 0,                                 # number of MR volumes to discard 
+                                        #before start
+
   -s [alt+z],alt-z,seq+z,               # slice order
      seq-z,filename 
 
@@ -79,11 +82,13 @@ my $type      ='matlab';
 my $oprefix   ='';
 my $sliceOrder='alt+z';
 my $trustIdx='none';
+my $numdiscard=0;
 
 GetOptions('retrotype:s'=>\$type, 
            'oprefix:s'=>\$oprefix,
            'sliceOrder:s'=>\$sliceOrder,
            'trustIdx:s'=>\$trustIdx,
+           'discard:i'=>\$numdiscard,
            ) or pod2usage(1);
 
 # now that we've removed the options
@@ -96,6 +101,7 @@ my ($pfile1,$pfile2,@MRs) = @ARGV;
 # intialize object
 my $p = App::AFNI::SiemensPhysio->new({
           VERB=>1,
+          MRDiscardNum=>$numdiscard, 
           sliceOrder=>$sliceOrder, 
           prefix=>$oprefix, 
           trustIdx=>$trustIdx

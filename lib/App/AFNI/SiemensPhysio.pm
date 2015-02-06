@@ -139,6 +139,7 @@ sub new {
    pulsStart =>'1 2 40 280',
    respStart =>'1 2 20 2',
    sliceOrder => 'alt+z',
+   MRDiscardNum => 0, # how many MR volues to discard
    VERB=>0,
    trustIdx=>'none',
 
@@ -301,11 +302,23 @@ sub readMRdir {
  # @v is an element for each dcm (line of output)
  my @v=`$dcmcmd` or croak "could not run $dcmcmd";
 
+
  # make each line an array
  # so we have an array of arrays
  # v[0] is all info on first dicom
  # v[0][0] is the first dicom's file name
  @v= map { [split / /] } @v;
+ 
+ # Sort by acq time (just in case file names are out of order)
+ # only needed to ensure trunction takes out the right dicoms
+ my $ati=getidx('AcqTime');
+ @v = sort {$a->[$ati] <=> $b->[$ati]} @v;
+
+ # Truncate dicom list if we have volumes to discard
+ # for some multi-band protocols, the first dicom is junk
+ # for older protocols, we have to manually discard volumes
+ #  -- eitherway we dont want them
+ @v=@v[($self->{MRDiscardNum})..$#v] if($self->{MRDiscardNum});
 
  # record some constant settings/values
  for my $vals (qw/protocol TR ET Series nslice/) {
