@@ -123,4 +123,5 @@ for(@ARGV[0..1]){
 
 # get RVT
 $p->retroTS($type)
+print "# $0 @ARGV\n";
 

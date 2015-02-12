@@ -6,6 +6,7 @@ use warnings;
 use Carp;
 use List::MoreUtils qw/minmax uniq/;
 use File::Basename;
+use File::Copy 'mv';
 use feature 'say';
 
 
@@ -221,6 +222,10 @@ sub readPhysio {
 
 
    # get start and end from settings
+   if(!$settings{"LogStart${timetyp}Time"} or !$settings{"LogStop${timetyp}Time"}) {
+     croak "Cannot find Log(Start|Stop)*Time in $fname";
+   }
+
    $self->{physStart} = $settings{"LogStart${timetyp}Time"}/1000;
    $self->{physEnd}   = $settings{"LogStop${timetyp}Time"}/1000;
 
@@ -460,20 +465,21 @@ sub retroTS {
  my $runtype=shift;
  return if $runtype and $runtype =~ /none/i;
 
+ # we need to have both data types
+ croak "need writeMRPhys for both puls and resp" 
+   if ! $self->{dat} || ! -e $self->{dat}->{resp} || ! -e $self->{dat}->{resp};
+
+
  # default to using matlab
  my $matlabbin="matlab";
 
  # find where matlab script points to
- my $acutalmatlab=`perl -ne 'print \$& if /^.*matlab /' \`which matlab\``;
- $matlabbin=$acutalmatlab if $acutalmatlab;
+ #my $acutalmatlab=`perl -ne 'print \$& if /^.*matlab /' \`which matlab\``;
+ #$matlabbin=$acutalmatlab if $acutalmatlab;
 
  # or use env MATLABBIN
  $matlabbin= $ENV{MATLABBIN} if $ENV{MATLABBIN};
 
-
- # we need to have both data types
- croak "need writeMRPhys for both puls and resp" 
-   if ! $self->{dat} || ! -e $self->{dat}->{resp} || ! -e $self->{dat}->{resp};
 
  my %params = (
    "Opts.Respfile"   => "'".$self->{dat}->{resp}."'", # Respiration data file
@@ -518,14 +524,25 @@ sub retroTS {
   $runcmd=$mccmd;
  }
 
- system($runcmd) if $runcmd;
 
- if( $runcmd && ! -e "oba.slibase.1D" ){
-   croak "failed to run $runcmd";
- } else {
-   # move file to output name if told to
-   rename "oba.slibase.1D", $outputname if $outputname;
+ if($runcmd) {
+   # retroTS just dumpes out oba.slibase.1D whereever it is run from
+   # ..so run from where we want to save the file
+   chdir dirname($outputname); 
+   system($runcmd);
+
+   # check if we have the expected output
+   if(! -e "oba.slibase.1D" ){
+     croak "failed to run\n\n: $runcmd\n\n";
+   } else {
+     # move file to output name
+     mv "oba.slibase.1D", $outputname or
+        croak "could not move oba.slibase.1D to $outputname";
+   }
+   print "$outputname # saved as final output " , `date +%F\\ %H:%M` , "\n";
  }
+
+
 }
 
 
