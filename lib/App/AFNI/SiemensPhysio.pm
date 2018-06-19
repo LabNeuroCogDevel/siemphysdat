@@ -143,7 +143,6 @@ sub new {
    MRDiscardNum => 0, # how many MR volues to discard
    VERB=>0,
    trustIdx=>'none',
-
   );
   # use defaults when we didn't set anything
   for my $k (keys %defaults) {
@@ -161,7 +160,7 @@ after intializing p, provide a file name
 
 =head3 input file format
 
- 1 2 40 280 ...
+ 1 2 40 280 ... [long space delimn. list of measurements, maybe 5000 for trigger?]
  ECG  Freq Per: 0 0
  PULS Freq Per: 74 807
  RESP Freq Per: 20 2860
@@ -358,6 +357,32 @@ sub readMRdir {
            $self->{MRend},
            $self->{nDcms},
            $self->{TR}) unless $self->{trustIdx}=~/All|MR/i;
+}
+
+=head2 readBIDSJson
+read TR MRstart and crate MRend from BIDS style json output 
+(e.g. created by dcm2niix). 
+
+must already have nDcms (number of volumes in 4d) set
+
+=cut
+sub readBIDSJson() {
+ use JSON qw/decode_json/;
+ my $self=shift;
+ my $jsonfile=shift;
+ open my $JS, '<', $jsonfile or 
+   croak "could not open BIDS JSON '$jsonfile'";
+ my $data = decode_json(do{local $/; <$JS>})  or
+   croak "could not parse JSON in '$jsonfile'";
+
+ $self->{'MRstart'} = getMRAcqSecs($data->{'AcquisitionDateTime'});
+ # ($+{HH}*60*60) + ($+{MM}*60) + $+{SS} ..
+ $self->{TR} = $data->{RepetitionTime}; # in seconds. eg 1.5
+ $self->{MRend} = $self->{MRstart} + $self->{nDcms}*$self->{TR};
+ # timeCheck is meaningless -- MRend is derived the same way as the check
+           
+ # Also have meaningful attributes
+ # PhaseEncodingDirection SliceTiming
 }
 
 =head2 writeMRPhys
@@ -574,11 +599,13 @@ sub timeCheck {
  return 1;
 }
 
-# DICOM Acq Time is fmt like HHMMSS.SS
+# DICOM Acq Time is fmt like HHMMSS.SS (172745.487500)
+# JSON BIDs AcqTime like 2018-06-15T17:27:45.487500
 sub getMRAcqSecs {
   $_=shift;
-  m/^(?<HH>\d{2})(?<MM>\d{2})(?<SS>\d{2}\.\d+)$/ 
-    or croak "$_ from MR time does not look like HHMMSS.sssss";
+  m/^(?<HH>\d{2})(?<MM>\d{2})(?<SS>\d{2}\.\d+)$/ or
+   m/^\d{4}-\d{2}-\d{2}T(?<HH>\d{2}):(?<MM>\d{2}):(?<SS>\d{2}\.\d+)$/ or
+   croak "$_ from MR time does not look like HHMMSS.sssss or like YYYY-MM-DDTHH:MM:SS.sssss";
 
   my $secs = ($+{HH}*60*60) + ($+{MM}*60) + $+{SS} ;
   return $secs;

@@ -31,8 +31,14 @@ Options:
   -r [matlab]|McRetroTs|                # retoTS method
      show    | none 
 
+  -j [none], bids_file.json             # use bids json file as input 
+                                        # INSTEAD of MRdir/
+
+  -n [none], #                          # specify number of trs. neccessary if using -j
+
   -t [none],MR,Phys,all                 # trust times&samplerate
                                         # dont compare to index count
+
 
 
 C<-r none> is useful if you only want the *dat files
@@ -83,17 +89,23 @@ my $oprefix   ='';
 my $sliceOrder='alt+z';
 my $trustIdx='none';
 my $numdiscard=0;
+my $jsonfile="";
+my $nTR=0;
 
 GetOptions('retrotype:s'=>\$type, 
            'oprefix:s'=>\$oprefix,
            'sliceOrder:s'=>\$sliceOrder,
            'trustIdx:s'=>\$trustIdx,
            'discard:i'=>\$numdiscard,
+           'ntr:i'=>\$nTR,
+           'jsonfile:s'=>\$jsonfile,
            ) or pod2usage(1);
 
 # now that we've removed the options
 # check for inputs
-pod2usage(1) if $#ARGV<2;
+my $ninputneed=2;
+++$ninputneed if $jsonfile eq ""; 
+pod2usage(1) if $#ARGV< $ninputneed -1;
 for (@ARGV) { die "cannot read  '$_', should be physio file or MR dir:" if ! -r $_ }
 my ($pfile1,$pfile2,@MRs) = @ARGV;
 
@@ -104,15 +116,19 @@ my $p = App::AFNI::SiemensPhysio->new({
           MRDiscardNum=>$numdiscard, 
           sliceOrder=>$sliceOrder, 
           prefix=>$oprefix, 
-          trustIdx=>$trustIdx
+          trustIdx=>$trustIdx,
 });
 
 # read in MR
-if ( -d $MRs[0] ){
+if ( -e $jsonfile ){
+    die "must specify the number of trs (-n) when using bids json (-j)" if $nTR == 0;
+    $p->nDcm = $nTR;
+    $p->readBIDSJson($jsonfile);
+}elsif ( -d $MRs[0] ){
    $p->readMRdir($MRs[0]);
    warn "only using first MR directory ($MRs[0])"  if $#MRs>0;
 } else {
-   die "using MRfiles is not implemented!\nln -s the files into a directory and use that";
+   die "Do not have a valid MR directory ($MRs[0]) and did not specify -j; dont know what to do";
 }
 
 # read in the physio files
@@ -122,6 +138,6 @@ for(@ARGV[0..1]){
 }
 
 # get RVT
-$p->retroTS($type)
+$p->retroTS($type);
 print "# $0 @ARGV\n";
 

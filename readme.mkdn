@@ -48,6 +48,13 @@ dzil install
 
 
 ## Trouble Shooting/Dependencies
+### quick edits
+
+```
+export PERL5LIB="$PERL5LIB:$(pwd)/lib"
+lib/bin/siemphysdat
+```
+
 ### RetroTS.m in path
 You should have [afni's matlab scripts](http://afni.nimh.nih.gov/afni/download/afnimatlab/releases/latest) and they should be your [`MATLABPATH`](http://www.mathworks.com/help/matlab/ref/path.html) (e.g. `export MATLABPATH="$HOME/afni_matlab:$MATLABPATH"`)
 
