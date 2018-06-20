@@ -240,8 +240,9 @@ sub readPhysio {
 
 
    say "file is $self->{ptype} with $#{$self->{measures}} samples, " ,
-       "$self->{physStart}s - $self->{physEnd}s, ",
-       "sample rate adjusted to $self->{PhRate}"
+       "$self->{physStart}s - $self->{physEnd}s (",
+       sprintf("%.2f",($self->{physEnd}-$self->{physStart})/60),
+       "min), sample rate adjusted to $self->{PhRate}"
      if $self->{VERB};
 
    # does the time match the sample rate and number of samples
@@ -381,6 +382,9 @@ sub readBIDSJson() {
  $self->{MRend} = $self->{MRstart} + $self->{nDcms}*$self->{TR};
  # timeCheck is meaningless -- MRend is derived the same way as the check
            
+ # for output, set protocol and series 
+ $self->{protocol} = $data->{ProtocolName};
+ $self->{Series} = $data->{SeriesDescription};
  # Also have meaningful attributes
  # PhaseEncodingDirection SliceTiming
 }
@@ -658,10 +662,12 @@ sub sandwichIdx {
   my ($MRstart,$MRend)     = @{$meat};
   my ($physStart,$physEnd) = @{$bread};
 
-  croak "MR starts ($MRstart) before physio ($physStart)" 
+  croak sprintf("ERROR: MR starts ($MRstart) %.2f min before physio ($physStart)",
+		($physStart-$MRstart)/60)
     if( $MRstart  < $physStart );
 
-  croak "MR ends ($MRend) after physio ($physEnd)" 
+  croak sprintf("ERROR: MR ends ($MRend) %.02f min after physio ($physEnd)",
+		($MRend-$physEnd)/60)
     if( $MRend  > $physEnd);
 
   # calc start and end by adding sandwitch top (start as ref)
