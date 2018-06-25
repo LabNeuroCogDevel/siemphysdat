@@ -5,7 +5,7 @@ Utility to chop physio measures (voltages) from Siemens Physiologic Monitoring U
 This is for you if you want  `1D` inputs for `3dretroicor` or `afni_proc.py` (`ricor` block) and have physio recordings (`*.resp` and `*.puls`) files the look like [this](data/wpc4951_10824_20111108_110811.puls):
 
 ```
-1 2 40 280 ...
+1 2 40 280 ... [measure's full timeseries on a single line]
 ECG  Freq Per: 0 0
 PULS Freq Per: 74 807
 RESP Freq Per: 20 2860
@@ -18,8 +18,10 @@ RESP Freq Per: 20 2860
 
 ```bash
 siemphysdat respfile pulsefile MRdir
+# or
+siemphysdat respfile pulsefile -j BIDS_protcol_info.json
 ```
-
+### Output
 look for new `*dat` (chopped physio) and `*slibase.1D` (RVT regressors, ready for `-ricor` in `afni_proc.py`) files
 
 ### Example/Practice
@@ -48,15 +50,16 @@ dzil install
 
 
 ## Trouble Shooting/Dependencies
-### quick edits
+### run without packaging
+If you want to quickly edit or run without (re-)installing
 
 ```
 export PERL5LIB="$PERL5LIB:$(pwd)/lib"
 lib/bin/siemphysdat
 ```
 
-### dicom_hinfo and RetroTS.py in path
-[`dicom_hinfo`](http://afni.nimh.nih.gov/pub/dist/doc/program_help/dicom_hinfo.html) from [AFNI](http://afni.nimh.nih.gov/afni/download) is used to read slice timing, TR, and MR times. This must be in `PATH`. If this is in the path, `RetroTS.py` is probably also there.
+### whats in your PATH
+`RetroTS.py` and [`dicom_hinfo`](http://afni.nimh.nih.gov/pub/dist/doc/program_help/dicom_hinfo.html) from [AFNI](http://afni.nimh.nih.gov/afni/download) are likely to be used and should be in your `PATH`.
 
 See `which dicom_hinfo` to check.
 ### RetroTS.m in path
