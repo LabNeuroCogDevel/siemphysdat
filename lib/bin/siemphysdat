@@ -28,7 +28,7 @@ Options:
   -o prefix                             # where to save files,
                                         # trailing slash are important
 
-  -r [matlab]|McRetroTs|                # retoTS method
+  -r [python]|matlab|McRetroTs|         # retoTS method
      show    | none 
 
   -j [none], bids_file.json             # use bids json file as input 
@@ -84,7 +84,7 @@ App::AFNI::SiemensPhysio
 
 
 # read in arguments
-my $type      ='matlab';
+my $type      ='python';
 my $oprefix   ='';
 my $sliceOrder='alt+z';
 my $trustIdx='none';
@@ -139,5 +139,4 @@ for(@ARGV[0..1]){
 
 # get RVT
 $p->retroTS($type);
-print "# $0 @ARGV\n";
 

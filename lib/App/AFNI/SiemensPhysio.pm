@@ -7,6 +7,7 @@ use Carp;
 use List::MoreUtils qw/minmax uniq/;
 use File::Basename;
 use File::Copy 'mv';
+use JSON qw/decode_json/;
 use feature 'say';
 
 
@@ -149,6 +150,8 @@ sub new {
     $self->{$k} = $defaults{$k} unless $self and $self->{$k};
   }
 
+  $self->{defaults} = \%defaults;
+
   return bless $self, $class;
 }
 
@@ -233,16 +236,20 @@ sub readPhysio {
    
    # reset rate if its only off by a very small amount
    # and we don't trust the sample rate we provided
-   my $newrate = abs($self->{physStart}- $self->{physEnd})/$#{$self->{measures}};
-   $self->{PhRate} = $newrate 
-     if abs($newrate-$self->{PhRate}) < .00001  and
-        $self->{trustIdx}!~/All|Phys/i;
+   my $newrate = abs($self->{physStart} - $self->{physEnd})/$#{$self->{measures}};
+   
+   # if we trust Phys, then use the sampling rate we have
+   $self->{PhRate} = $newrate if $self->{trustIdx} =~ /All|Phys/;
 
+   # or even if we dont trust, but we are close
+   $self->{PhRate} = $newrate 
+     if abs($newrate-$self->{PhRate}) < .0001  and
+        $self->{trustIdx}!~/All|Phys/i;
 
    say "file is $self->{ptype} with $#{$self->{measures}} samples, " ,
        "$self->{physStart}s - $self->{physEnd}s (",
        sprintf("%.2f",($self->{physEnd}-$self->{physStart})/60),
-       "min), sample rate adjusted to $self->{PhRate}"
+       "min), sample rate set to $self->{PhRate} (data $newrate, init $self->{defaults}->{PhRate})"
      if $self->{VERB};
 
    # does the time match the sample rate and number of samples
@@ -368,7 +375,6 @@ must already have nDcms (number of volumes in 4d) set
 
 =cut
 sub readBIDSJson() {
- use JSON qw/decode_json/;
  my $self=shift;
  my $jsonfile=shift;
  open my $JS, '<', $jsonfile or 
@@ -464,6 +470,9 @@ how this step is handled is defined by the first argument
 
 =item show: print commands for both matlab and McRetroTS
 
+=item python: use RetroTS.py 
+
+
 =item none: do nothing (why'd you call me then!?)
 
 =back
@@ -499,44 +508,66 @@ sub retroTS {
    if ! $self->{dat} || ! -e $self->{dat}->{resp} || ! -e $self->{dat}->{resp};
 
 
- # default to using matlab
- my $matlabbin="matlab";
+ my $runcmd="";
+ my $run_out = "";
+ if($runtype =~ /python/) {
 
- # find where matlab script points to
- #my $acutalmatlab=`perl -ne 'print \$& if /^.*matlab /' \`which matlab\``;
- #$matlabbin=$acutalmatlab if $acutalmatlab;
+   $runcmd=sprintf("RetroTS.py -r %s -c %s -p %d -n %d -v %f",
+               $self->{dat}->{resp}, $self->{dat}->{resp},
+               1/$self->{PhRate},
+               $self->{nslice},$self->{TR});
+   $run_out = "Output_File_Name.slibase.1D";
 
- # or use env MATLABBIN
- $matlabbin= $ENV{MATLABBIN} if $ENV{MATLABBIN};
+   say "using RetroTS.py: $runcmd";
+ }else{
+
+    # matlab or McRetroTS
+    #
+    # default to using matlab
+    my $matlabbin="matlab";
+
+    # find where matlab script points to
+    #my $acutalmatlab=`perl -ne 'print \$& if /^.*matlab /' \`which matlab\``;
+    #$matlabbin=$acutalmatlab if $acutalmatlab;
+
+    # or use env MATLABBIN
+    $matlabbin= $ENV{MATLABBIN} if $ENV{MATLABBIN};
 
 
- my %params = (
-   "Opts.Respfile"   => "'".$self->{dat}->{resp}."'", # Respiration data file
-   "Opts.Cardfile"   => "'".$self->{dat}->{puls}."'", # Cardiac data file
-   "Opts.PhysFS"     => 1/$self->{PhRate},    # Physioliogical signal sampling frequency in Hz.
-   "Opts.Nslices"    => $self->{nslice},      # Number of slices
-   "Opts.VolTR"      => $self->{TR},          # Volume TR in seconds
-   "Opts.SliceOrder" => "'".$self->{sliceOrder}."'"  # ['alt+z']/'alt-z'/'seq+z'/'seq-z'/'Custom'/filename.1D
- );
+    my %params = (
+      "Opts.Respfile"   => "'".$self->{dat}->{resp}."'", # Respiration data file
+      "Opts.Cardfile"   => "'".$self->{dat}->{puls}."'", # Cardiac data file
+      "Opts.PhysFS"     => 1/$self->{PhRate},    # Physioliogical signal sampling frequency in Hz.
+      "Opts.Nslices"    => $self->{nslice},      # Number of slices
+      "Opts.VolTR"      => $self->{TR},          # Volume TR in seconds
+      "Opts.SliceOrder" => "'".$self->{sliceOrder}."'"  # ['alt+z']/'alt-z'/'seq+z'/'seq-z'/'Custom'/filename.1D
+    );
 
- # McRetroTS Respdatafile ECGdatafile VolTR Nslices SamplingFreq(PhysFS) ShowGraphs
- my @mcrts = qw/Opts.Respfile Opts.Cardfile Opts.VolTR Opts.Nslices Opts.PhysFS/;
- my $mccmd =  "McRetroTs @params{@mcrts}";
- say $mccmd if $runtype !~ /matlab|McRetroTs/g ;;
+    # McRetroTS Respdatafile ECGdatafile VolTR Nslices SamplingFreq(PhysFS) ShowGraphs
+    my @mcrts = qw/Opts.Respfile Opts.Cardfile Opts.VolTR Opts.Nslices Opts.PhysFS/;
+    my $mccmd =  "McRetroTs @params{@mcrts}";
+    say $mccmd if $runtype !~ /matlab|McRetroTs/g ;;
 
 
- # if have matlab and singal toolbox, can use this
- my $cmd = join("; ", map { join("=",$_,$params{$_}) } keys %params);
- $cmd .= "; Opts.ShowGraphs=0;Opts.Quiet=0;"; # turn off graphs, turn on verbose
- $cmd .= " rts = RetroTS(Opts)";
+    # if have matlab and singal toolbox, can use this
+    my $cmd = join("; ", map { join("=",$_,$params{$_}) } keys %params);
+    $cmd .= "; Opts.ShowGraphs=0;Opts.Quiet=0;"; # turn off graphs, turn on verbose
+    $cmd .= " rts = RetroTS(Opts)";
 
- # we should wrap matlab up in a try+quit so we dont hang in ML command window on a failure
- my $matlabwrap= qq/$matlabbin -nodisplay -r "try; $cmd; catch err; err, exit(1); end; rts, quit;"/;
+    # we should wrap matlab up in a try+quit so we dont hang in ML command window on a failure
+    my $matlabwrap= qq/$matlabbin -nodisplay -r "try; $cmd; catch err; err, exit(1); end; rts, quit;"/;
 
- say $matlabwrap if $runtype !~ /matlab|McRetroTs/i;
- # eg
- # matlab -nodisplay -r "try; Opts.Cardfile='rest_164627.359000.puls.dat'; Opts.VolTR=1.5; Opts.Nslices=29; Opts.SliceOrder='alt+z'; Opts.PhysFS=50.0074711455304; Opts.Respfile='rest_164627.359000.resp.dat'; rts = RetroTS(Opts); catch; exit(666); end; quit;"
+    say $matlabwrap if $runtype !~ /matlab|McRetroTs/i;
+    # eg
+    # matlab -nodisplay -r "try; Opts.Cardfile='rest_164627.359000.puls.dat'; Opts.VolTR=1.5; Opts.Nslices=29; Opts.SliceOrder='alt+z'; Opts.PhysFS=50.0074711455304; Opts.Respfile='rest_164627.359000.resp.dat'; rts = RetroTS(Opts); catch; exit(666); end; quit;"
+    if($runtype =~ /matlab/i){
+     $runcmd=$matlabwrap
+    }elsif($runtype =~ /McRetroTs/i){
+     $runcmd=$mccmd;
+    }
 
+    $run_out="oba.slicebase.1D";
+ }
  # with either command, the original output name will be "oba.slibase.1D"
  # change that to our basename (assume resp and puls have same basename, use one from resp)
  my $outputname = $self->{dat}->{resp};
@@ -546,12 +577,6 @@ sub retroTS {
  #my $outputname=shift if $#_;
  
  
- my $runcmd="";
- if($runtype =~ /matlab/i){
-  $runcmd=$matlabwrap
- }elsif($runtype =~ /McRetroTs/i){
-  $runcmd=$mccmd;
- }
 
 
  if($runcmd) {
@@ -561,12 +586,12 @@ sub retroTS {
    system($runcmd);
 
    # check if we have the expected output
-   if(! -e "oba.slibase.1D" ){
+   if(! -e $run_out ){
      croak "failed to run\n\n: $runcmd\n\n";
    } else {
      # move file to output name
-     mv "oba.slibase.1D", $outputname or
-        croak "could not move oba.slibase.1D to $outputname";
+     mv $run_out, $outputname or
+        croak "could not move $run_out to $outputname";
    }
    print "$outputname # saved as final output " , `date +%F\\ %H:%M` , "\n";
  }
@@ -589,6 +614,7 @@ sub timeCheck {
  my $maxDiffSec=$tau;
  my $dur=$end-$start;
  my $ideal=$n *$tau;
+ my $calctau = $dur/$n;
 
  # start and end time are sane
  croak "time starts ($start) before or on end time ($end)!" 
@@ -597,7 +623,7 @@ sub timeCheck {
  # samples * sample rate == actual duration
  my $offby  = sprintf('%.3f',$ideal-$dur);
  my $offbyN = sprintf('%.0f',$offby/$tau);
- croak "off by $offby s ($offbyN samples) >$maxDiffSec diff: $n samples at $tau should be $ideal secs not $dur ($end - $start)" 
+ croak "off by $offby s ($offbyN samples) >$maxDiffSec diff: $n samples at ($tau not $calctau) should be $ideal secs not $dur ($end - $start)" 
    if(abs($offby) > $maxDiffSec);
 
  return 1;
