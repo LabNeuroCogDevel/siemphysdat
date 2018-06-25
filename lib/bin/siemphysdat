@@ -134,6 +134,7 @@ if ( -e $jsonfile ){
 # read in the physio files
 for(@ARGV[0..1]){
    $p->readPhysio($_);
+   $p->checkTRfreq;
    $p->writeMRPhys;
 }
 

@@ -204,6 +204,7 @@ sub readPhysio {
 
    # break values by whitespace, remove 5000 and above
    # 5000 is a scanner trigger, 5003 is end
+   $self->{raw_measures} = [ split(/\W+/,$values) ];
    $self->{measures} = [ grep { $_ < 5000 } split(/\W+/,$values) ];
 
    # get settings matching 
@@ -433,6 +434,18 @@ sub writeMRPhys {
  writeDat($outfile,@pvals)
 }
 
+=head2 checkTRfreq
+Use frequency of 5000 in data to check sample frequence and TR
+=cut
+sub checkTRfreq {
+   my $self=shift;
+   my @trs = grep {$_ == 5000} @{$self->{raw_measures} };
+   return;
+   # not a good check!
+   # demo data: 4573 5000s in puls, instead of 200!?
+   croak "number of mr volumes ($self->{nDcms}) does not match number of 5000s in $self->{ptype} ($#trs)" if
+      $#trs != $self->{nDcms};
+}
 
 
 

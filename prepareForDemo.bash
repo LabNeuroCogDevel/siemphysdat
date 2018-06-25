@@ -16,7 +16,7 @@ fi
 
 # exvolt (extract voltage) is a c++ program that should do about the same thing
 #    it is shifted by 340 msecs (17 samples)?
-[ ! -r exvolt ] && wget https://cfn.upenn.edu/aguirre/public/exvolt/exvolt
+#[ ! -r exvolt ] && wget https://cfn.upenn.edu/aguirre/public/exvolt/exvolt
 # ./exvolt  ../App-AFNI-SiemensPhysio/data/MR ../App-AFNI-SiemensPhysio/data/wpc4951_10824_20111108_110811.resp test.dat
 
 
