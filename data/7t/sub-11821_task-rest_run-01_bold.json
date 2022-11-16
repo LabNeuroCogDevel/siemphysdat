@@ -27,7 +27,7 @@
 	"SliceThickness": 2,
 	"SpacingBetweenSlices": 2,
 	"EchoTime": 0.023,
-	"RepetitionTime": 0.052,
+	"RepetitionTime": 2.18,
 	"FlipAngle": 7,
 	"PartialFourier": 0.875,
 	"BaseResolution": 98,

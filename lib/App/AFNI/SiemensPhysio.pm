@@ -144,6 +144,7 @@ sub new {
    VERB=>0,
    trustIdx=>'none',
    changeTR=>0,
+   changeNDcms=>0,
   );
   # use defaults when we didn't set anything
   for my $k (keys %defaults) {
@@ -217,7 +218,7 @@ sub readPhysio {
    $self->{measures} = [ grep { $_ < 5000 } @{$self->{raw_measures}} ];
 
    # index where scanner TR is recordded (value=5000)
-   $self->{idxTR} = idxTR(@{$self->{raw_measures}});
+   $self->{idxTR} = [idxTR(@{$self->{raw_measures}})];
 
    # get settings matching 
    my %settings;
@@ -267,6 +268,9 @@ sub readPhysio {
              $self->{physEnd},
              $#{$self->{measures}},
              $self->{PhRate} ) unless $self->{trustIdx}=~/All|Phys/i;
+
+   # re/set MR within Phys indexes
+   $self->setMRidx();
 }
 
 
@@ -356,12 +360,19 @@ sub readMRdir {
  $self->{TR} /=1000;
  
 
+ ## changes to what we should have gotten from dicom header
  my $mr_tr_s = $self->{changeTR};
  if($mr_tr_s != 0){
    warn "manually setting tr to $mr_tr_s is not necessary" if($mr_tr_s == $self->{TR});
    say "# manually adjusting tr from '$self->{TR}' to '$mr_tr_s'";
    $self->{TR} = $mr_tr_s;
  } else { say "# keeping orig tr $self->{TR}";}
+
+ if($self->{changeNDcms}>0){
+   say "# manually adjusting nVols from '$self->{nDcms}' to '$self->{changeNDcms}'";
+   $self->{nDcms} = $self->{changeNDcms};
+ }
+ 
 
 
  # Acquistion index
@@ -444,7 +455,6 @@ sub writeMRPhys {
  }
 
  $self->{dat}->{$self->{ptype}}=$outfile;
-
  my @pvals = $self->getMRPhys;
 
  say "saving to $outfile" if $self->{VERB};
@@ -456,13 +466,13 @@ Use count of '5000' in sequence to check sample frequence and TR
 =cut
 sub checkTRfreq {
    my $self=shift;
-   my $start = $self->{MRstartIdx};
-   my $end = $self->{MRendIdx};
-   my @trs = grep {$_ >= $start and $_ <= $end} @{$self->{idxTR} };
-   return;
+   my $start = $self->{'MRstartIdx'};
+   my $end = $self->{'MRendIdx'};
+   #say "#s $start, e $end, n: $self->{nDcms}";
+   my @trs = grep {$_ >= $start && $_ <= $end} @{$self->{idxTR}};
    # not a good check!
    # demo data: 4573 5000s in puls, instead of 200!?
-   croak "MR nVols mismatch: $self->{nDcms} != $#trs trigger=5000 in '$self->{ptype}' (phys idx $start and $end)" if
+   carp "MR nVols mismatch: $self->{nDcms} != $#trs trigger=5000 in '$self->{ptype}' (phys idx $start and $end)" if
       $#trs != $self->{nDcms};
 }
 
@@ -656,9 +666,7 @@ sub getMRAcqSecs {
 }
 
 
-
-# returns vector of phys for the timing of an MR file
-sub getMRPhys {
+sub setMRidx {
  my $self=shift;
  my ($s,$e) = sandwichIdx( 
                     [@{$self}{qw/physStart physEnd/}], 
@@ -670,7 +678,15 @@ sub getMRPhys {
 
  ## print out where data is coming from/how sandwiching worked
  $self->sayIndex if $self->{VERB};
+}
 
+
+# returns vector of phys for the timing of an MR file
+sub getMRPhys {
+
+ my $self=shift;
+ my $s = $self->{MRstartIdx};
+ my $e = $self->{MRendIdx};
  my @pval = @{$self->{measures}}[$s..$e];
 
  croak "no pvals!? bad indexes?" if $#pval < 0;
@@ -749,11 +765,12 @@ sub sayIndex {
  my $e  = $self->{MRendIdx}   || undef;
  # lets talk about what we have
  say "# extracting MR window from Physio";
- say "# $ps        \t| MR $s    \t$e      \t| $pe   (index)" if $s and $e;
- say "# $self->{physStart}\t| MR $self->{MRstart}\t$self->{MRend}\t| $self->{physEnd} (seconds)  ";
- say "MR: $self->{TR}s*$self->{nDcms}vol=",  $self->{TR}*$self->{nDcms}, "s total";
- say "Ph for MR: ";
- say " n=", $e-$s, "samples*",substr($self->{PhRate},0,6),"hz t=", ($e-$s)*$self->{PhRate}, "s";
+ say "# $ps        \t| MR $s    \t$e      \t| $pe  \t", $e-$s ," phys samps" if $s and $e;
+ say "# $self->{physStart}\t| MR $self->{MRstart}\t$self->{MRend}\t| $self->{physEnd}\t",
+      sprintf("%.03f", $self->{MRend} - $self->{MRstart})," secs";
+ say "# MR: $self->{TR}s*$self->{nDcms}vol=",  $self->{TR}*$self->{nDcms}, "s total";
+ say "# Ph for MR: ";
+ say "# n=", $e-$s, "samples*",substr($self->{PhRate},0,6),"hz t=", ($e-$s)*$self->{PhRate}, "s";
 
 }
 

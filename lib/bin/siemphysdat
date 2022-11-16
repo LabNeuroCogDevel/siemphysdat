@@ -37,7 +37,8 @@ Options:
   -t [none],MR,Phys,all                 # trust times&samplerate
                                         # dont compare to index count
 
-  --changetr 2.24                             # manually set the MR TR
+  --changetr 2.24                       # manually set the MR TR
+  --zslices 48                          # manually set the number of slices
 
 
 C<-r none> is useful if you only want the *dat files
@@ -91,6 +92,7 @@ my $numdiscard=0;
 my $jsonfile="";
 my $nTR=0;
 my $mr_tr_s=0;
+my $zslices=0;
 
 GetOptions('retrotype:s'=>\$type, 
            'oprefix:s'=>\$oprefix,
@@ -100,6 +102,7 @@ GetOptions('retrotype:s'=>\$type,
            'ntr:i'=>\$nTR,
            'jsonfile:s'=>\$jsonfile,
            'changetr:f'=>\$mr_tr_s,
+           'zslices:i'=>\$zslices,
            ) or pod2usage(1);
 
 # now that we've removed the options
@@ -117,21 +120,26 @@ my $p = App::AFNI::SiemensPhysio->new({
           sliceOrder=>$sliceOrder, 
           prefix=>$oprefix, 
           trustIdx=>$trustIdx,
+          changeNDcms=>$nTR,
           changeTR=>$mr_tr_s
 });
 
 # read in MR
 if ( -e $jsonfile ){
-    die "must specify the number of trs (-n) when using bids json (-j)" if $nTR == 0;
+    die "need eg. '-n 220' for number of volumes when using bids json (-j)" if $nTR == 0;
+    die "need eg. '-zslices 48' for number of slices when using bids (-j)" if $zslices == 0;
     $p->{nDcms} = $nTR;
     $p->readBIDSJson($jsonfile);
 }elsif ( -d $MRs[0] ){
    $p->readMRdir($MRs[0]);
+   $p->{nDcms} = $nTR if $nTR > 0; # manually set number of volumes. useful for testing
    warn "only using first MR directory ($MRs[0])"  if $#MRs>0;
 } else {
    die "Do not have a valid MR directory ($MRs[0]) and did not specify -j; dont know what to do";
 }
 
+# BIDS file doesn't have number of slices (or TR). manually add
+$p->{nslice} = $zslices if $zslices > 0;
 
 # read in the physio files
 for(@ARGV[0..1]){
@@ -142,5 +150,3 @@ for(@ARGV[0..1]){
 
 # get RVT
 $p->retroTS($type);
-print "# $0 @ARGV\n";
-
