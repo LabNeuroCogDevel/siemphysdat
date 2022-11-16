@@ -7,7 +7,6 @@ use Carp;
 use List::MoreUtils qw/minmax uniq/;
 use File::Basename;
 use File::Copy 'mv';
-use JSON qw/decode_json/;
 use feature 'say';
 
 
@@ -121,7 +120,7 @@ don't check sample rate and index count against end-start time
   phys=> trust physio (PhRate as set by init)
   all => trust both
 
-Note: just have to match reg exp, so MRphys is same as all
+Note: trust assinged by reg exp, 'MR+phys' is same as 'all'
 
 =back 
 
@@ -144,15 +143,23 @@ sub new {
    MRDiscardNum => 0, # how many MR volues to discard
    VERB=>0,
    trustIdx=>'none',
+   changeTR=>0,
   );
   # use defaults when we didn't set anything
   for my $k (keys %defaults) {
     $self->{$k} = $defaults{$k} unless $self and $self->{$k};
   }
 
-  $self->{defaults} = \%defaults;
-
   return bless $self, $class;
+}
+
+sub idxTR {
+   my @measures = $@;
+   my @acc_i = ();
+   for my $i (0..$#measures) {
+       push @acc_i, $i - $#acc_i if $measures[$i] == 5000;
+   }
+   return @measures;
 }
 
 =head2 readPhysio
@@ -205,7 +212,10 @@ sub readPhysio {
    # break values by whitespace, remove 5000 and above
    # 5000 is a scanner trigger, 5003 is end
    $self->{raw_measures} = [ split(/\W+/,$values) ];
-   $self->{measures} = [ grep { $_ < 5000 } split(/\W+/,$values) ];
+   $self->{measures} = [ grep { $_ < 5000 } @{$self->{raw_measures}} ];
+
+   # index of each 5000 -- scanner TR
+   $self->{idxTR} = idxTR(@{$self->{raw_measures}});
 
    # get settings matching 
    my %settings;
@@ -237,20 +247,17 @@ sub readPhysio {
    
    # reset rate if its only off by a very small amount
    # and we don't trust the sample rate we provided
-   my $newrate = abs($self->{physStart} - $self->{physEnd})/$#{$self->{measures}};
-   
-   # if we trust Phys, then use the sampling rate we have
-   $self->{PhRate} = $newrate if $self->{trustIdx} =~ /All|Phys/;
-
-   # or even if we dont trust, but we are close
+   # TODO: this could be a function of the nt*tr/lenght of sequence
+   my $newrate = abs($self->{physStart}- $self->{physEnd})/$#{$self->{measures}};
    $self->{PhRate} = $newrate 
      if abs($newrate-$self->{PhRate}) < .0001  and
         $self->{trustIdx}!~/All|Phys/i;
 
+
    say "file is $self->{ptype} with $#{$self->{measures}} samples, " ,
        "$self->{physStart}s - $self->{physEnd}s (",
        sprintf("%.2f",($self->{physEnd}-$self->{physStart})/60),
-       "min), sample rate set to $self->{PhRate} (data $newrate, init $self->{defaults}->{PhRate})"
+       "min), sample rate adjusted to $self->{PhRate}"
      if $self->{VERB};
 
    # does the time match the sample rate and number of samples
@@ -347,6 +354,13 @@ sub readMRdir {
  $self->{TR} /=1000;
  
 
+ my $mr_tr_s = $self->{changeTR};
+ if($mr_tr_s != 0){
+   warn "manually setting tr to $mr_tr_s is not necessary" if($mr_tr_s == $self->{TR});
+   say "# manually adjusting tr from '$self->{TR}' to '$mr_tr_s'";
+   $self->{TR} = $mr_tr_s;
+ } else { say "# keeping orig tr $self->{TR}";}
+
 
  # Acquistion index
  my $ATidx= getidx('AcqTime');
@@ -376,6 +390,7 @@ must already have nDcms (number of volumes in 4d) set
 
 =cut
 sub readBIDSJson() {
+ use JSON qw/decode_json/;
  my $self=shift;
  my $jsonfile=shift;
  open my $JS, '<', $jsonfile or 
@@ -383,7 +398,7 @@ sub readBIDSJson() {
  my $data = decode_json(do{local $/; <$JS>})  or
    croak "could not parse JSON in '$jsonfile'";
 
- $self->{'MRstart'} = getMRAcqSecs($data->{'AcquisitionDateTime'});
+ $self->{'MRstart'} = getMRAcqSecs($data->{'AcquisitionDateTime'}||$data->{'AcquisitionTime'});
  # ($+{HH}*60*60) + ($+{MM}*60) + $+{SS} ..
  $self->{TR} = $data->{RepetitionTime}; # in seconds. eg 1.5
  $self->{MRend} = $self->{MRstart} + $self->{nDcms}*$self->{TR};
@@ -435,15 +450,17 @@ sub writeMRPhys {
 }
 
 =head2 checkTRfreq
-Use frequency of 5000 in data to check sample frequence and TR
+Use count of '5000' in sequence to check sample frequence and TR
 =cut
 sub checkTRfreq {
    my $self=shift;
-   my @trs = grep {$_ == 5000} @{$self->{raw_measures} };
+   my $start = $self->{MRstartIdx};
+   my $end = $self->{MRendIdx};
+   my @trs = grep {$_ >= $start and $_ <= $end} @{$self->{idxTR} };
    return;
    # not a good check!
    # demo data: 4573 5000s in puls, instead of 200!?
-   croak "number of mr volumes ($self->{nDcms}) does not match number of 5000s in $self->{ptype} ($#trs)" if
+   croak "MR nVols mismatch: $self->{nDcms} != $#trs trigger=5000 in '$self->{ptype}' (phys idx $start and $end)" if
       $#trs != $self->{nDcms};
 }
 
@@ -483,9 +500,6 @@ how this step is handled is defined by the first argument
 
 =item show: print commands for both matlab and McRetroTS
 
-=item python: use RetroTS.py 
-
-
 =item none: do nothing (why'd you call me then!?)
 
 =back
@@ -521,66 +535,44 @@ sub retroTS {
    if ! $self->{dat} || ! -e $self->{dat}->{resp} || ! -e $self->{dat}->{resp};
 
 
- my $runcmd="";
- my $run_out = "";
- if($runtype =~ /python/) {
+ # default to using matlab
+ my $matlabbin="matlab";
 
-   $runcmd=sprintf("RetroTS.py -r %s -c %s -p %d -n %d -v %f",
-               $self->{dat}->{resp}, $self->{dat}->{resp},
-               1/$self->{PhRate},
-               $self->{nslice},$self->{TR});
-   $run_out = "Output_File_Name.slibase.1D";
+ # find where matlab script points to
+ #my $acutalmatlab=`perl -ne 'print \$& if /^.*matlab /' \`which matlab\``;
+ #$matlabbin=$acutalmatlab if $acutalmatlab;
 
-   say "using RetroTS.py: $runcmd";
- }else{
-
-    # matlab or McRetroTS
-    #
-    # default to using matlab
-    my $matlabbin="matlab";
-
-    # find where matlab script points to
-    #my $acutalmatlab=`perl -ne 'print \$& if /^.*matlab /' \`which matlab\``;
-    #$matlabbin=$acutalmatlab if $acutalmatlab;
-
-    # or use env MATLABBIN
-    $matlabbin= $ENV{MATLABBIN} if $ENV{MATLABBIN};
+ # or use env MATLABBIN
+ $matlabbin= $ENV{MATLABBIN} if $ENV{MATLABBIN};
 
 
-    my %params = (
-      "Opts.Respfile"   => "'".$self->{dat}->{resp}."'", # Respiration data file
-      "Opts.Cardfile"   => "'".$self->{dat}->{puls}."'", # Cardiac data file
-      "Opts.PhysFS"     => 1/$self->{PhRate},    # Physioliogical signal sampling frequency in Hz.
-      "Opts.Nslices"    => $self->{nslice},      # Number of slices
-      "Opts.VolTR"      => $self->{TR},          # Volume TR in seconds
-      "Opts.SliceOrder" => "'".$self->{sliceOrder}."'"  # ['alt+z']/'alt-z'/'seq+z'/'seq-z'/'Custom'/filename.1D
-    );
+ my %params = (
+   "Opts.Respfile"   => "'".$self->{dat}->{resp}."'", # Respiration data file
+   "Opts.Cardfile"   => "'".$self->{dat}->{puls}."'", # Cardiac data file
+   "Opts.PhysFS"     => 1/$self->{PhRate},    # Physioliogical signal sampling frequency in Hz.
+   "Opts.Nslices"    => $self->{nslice},      # Number of slices
+   "Opts.VolTR"      => $self->{TR},          # Volume TR in seconds
+   "Opts.SliceOrder" => "'".$self->{sliceOrder}."'"  # ['alt+z']/'alt-z'/'seq+z'/'seq-z'/'Custom'/filename.1D
+ );
 
-    # McRetroTS Respdatafile ECGdatafile VolTR Nslices SamplingFreq(PhysFS) ShowGraphs
-    my @mcrts = qw/Opts.Respfile Opts.Cardfile Opts.VolTR Opts.Nslices Opts.PhysFS/;
-    my $mccmd =  "McRetroTs @params{@mcrts}";
-    say $mccmd if $runtype !~ /matlab|McRetroTs/g ;;
+ # McRetroTS Respdatafile ECGdatafile VolTR Nslices SamplingFreq(PhysFS) ShowGraphs
+ my @mcrts = qw/Opts.Respfile Opts.Cardfile Opts.VolTR Opts.Nslices Opts.PhysFS/;
+ my $mccmd =  "McRetroTs @params{@mcrts}";
+ say $mccmd if $runtype !~ /matlab|McRetroTs/g ;;
 
 
-    # if have matlab and singal toolbox, can use this
-    my $cmd = join("; ", map { join("=",$_,$params{$_}) } keys %params);
-    $cmd .= "; Opts.ShowGraphs=0;Opts.Quiet=0;"; # turn off graphs, turn on verbose
-    $cmd .= " rts = RetroTS(Opts)";
+ # if have matlab and singal toolbox, can use this
+ my $cmd = join("; ", map { join("=",$_,$params{$_}) } keys %params);
+ $cmd .= "; Opts.ShowGraphs=0;Opts.Quiet=0;"; # turn off graphs, turn on verbose
+ $cmd .= " rts = RetroTS(Opts)";
 
-    # we should wrap matlab up in a try+quit so we dont hang in ML command window on a failure
-    my $matlabwrap= qq/$matlabbin -nodisplay -r "try; $cmd; catch err; err, exit(1); end; rts, quit;"/;
+ # we should wrap matlab up in a try+quit so we dont hang in ML command window on a failure
+ my $matlabwrap= qq/$matlabbin -nodisplay -r "try; $cmd; catch err; err, exit(1); end; rts, quit;"/;
 
-    say $matlabwrap if $runtype !~ /matlab|McRetroTs/i;
-    # eg
-    # matlab -nodisplay -r "try; Opts.Cardfile='rest_164627.359000.puls.dat'; Opts.VolTR=1.5; Opts.Nslices=29; Opts.SliceOrder='alt+z'; Opts.PhysFS=50.0074711455304; Opts.Respfile='rest_164627.359000.resp.dat'; rts = RetroTS(Opts); catch; exit(666); end; quit;"
-    if($runtype =~ /matlab/i){
-     $runcmd=$matlabwrap
-    }elsif($runtype =~ /McRetroTs/i){
-     $runcmd=$mccmd;
-    }
+ say $matlabwrap if $runtype !~ /matlab|McRetroTs/i;
+ # eg
+ # matlab -nodisplay -r "try; Opts.Cardfile='rest_164627.359000.puls.dat'; Opts.VolTR=1.5; Opts.Nslices=29; Opts.SliceOrder='alt+z'; Opts.PhysFS=50.0074711455304; Opts.Respfile='rest_164627.359000.resp.dat'; rts = RetroTS(Opts); catch; exit(666); end; quit;"
 
-    $run_out="oba.slicebase.1D";
- }
  # with either command, the original output name will be "oba.slibase.1D"
  # change that to our basename (assume resp and puls have same basename, use one from resp)
  my $outputname = $self->{dat}->{resp};
@@ -590,6 +582,12 @@ sub retroTS {
  #my $outputname=shift if $#_;
  
  
+ my $runcmd="";
+ if($runtype =~ /matlab/i){
+  $runcmd=$matlabwrap
+ }elsif($runtype =~ /McRetroTs/i){
+  $runcmd=$mccmd;
+ }
 
 
  if($runcmd) {
@@ -599,12 +597,12 @@ sub retroTS {
    system($runcmd);
 
    # check if we have the expected output
-   if(! -e $run_out ){
+   if(! -e "oba.slibase.1D" ){
      croak "failed to run\n\n: $runcmd\n\n";
    } else {
      # move file to output name
-     mv $run_out, $outputname or
-        croak "could not move $run_out to $outputname";
+     mv "oba.slibase.1D", $outputname or
+        croak "could not move oba.slibase.1D to $outputname";
    }
    print "$outputname # saved as final output " , `date +%F\\ %H:%M` , "\n";
  }
@@ -627,7 +625,6 @@ sub timeCheck {
  my $maxDiffSec=$tau;
  my $dur=$end-$start;
  my $ideal=$n *$tau;
- my $calctau = $dur/$n;
 
  # start and end time are sane
  croak "time starts ($start) before or on end time ($end)!" 
@@ -636,7 +633,8 @@ sub timeCheck {
  # samples * sample rate == actual duration
  my $offby  = sprintf('%.3f',$ideal-$dur);
  my $offbyN = sprintf('%.0f',$offby/$tau);
- croak "off by $offby s ($offbyN samples) >$maxDiffSec diff: $n samples at ($tau not $calctau) should be $ideal secs not $dur ($end - $start)" 
+ my $obsrate = $dur/$n;
+ croak "total duration off by $offby s ($offbyN samples) > max $maxDiffSec diff: $n samples at $tau should be $ideal secs not $dur ($end - $start). Is sample rate actually $obsrate" 
    if(abs($offby) > $maxDiffSec);
 
  return 1;
@@ -644,11 +642,12 @@ sub timeCheck {
 
 # DICOM Acq Time is fmt like HHMMSS.SS (172745.487500)
 # JSON BIDs AcqTime like 2018-06-15T17:27:45.487500
+# or "12:46:30.332500"
 sub getMRAcqSecs {
   $_=shift;
-  m/^(?<HH>\d{2})(?<MM>\d{2})(?<SS>\d{2}\.\d+)$/ or
+  m/^(?<HH>\d{2}):?(?<MM>\d{2}):?(?<SS>\d{2}\.\d+)$/ or
    m/^\d{4}-\d{2}-\d{2}T(?<HH>\d{2}):(?<MM>\d{2}):(?<SS>\d{2}\.\d+)$/ or
-   croak "$_ from MR time does not look like HHMMSS.sssss or like YYYY-MM-DDTHH:MM:SS.sssss";
+   croak "timestr '$_' from MR does not look like HH:?MM:?SS.sssss or like YYYY-MM-DDTHH:MM:SS.sssss";
 
   my $secs = ($+{HH}*60*60) + ($+{MM}*60) + $+{SS} ;
   return $secs;
@@ -690,17 +689,19 @@ sub writeDat {
 }
 
 #
-# get the start and end index of the meat given start,end time of meat and bread
+# get the start and end index of the 'MR in physio' (meat)
+# given [start,end] time in seconds  of MR and [start,end] Physio (bread)
 # need: start,end pairs in array ref + size and sample rate
-#  sandwichIdx([bread start,end],[meat start, end], size, rate)
+#  sandwichIdx([physio start,end],[MR start, end], MRsize, PhSampleRate)
 #
 sub sandwichIdx {
   my ($bread, $meat, $n, $r) = @_;
 
   # make sure the meat is inside the bread
-  my ($MRstart,$MRend)     = @{$meat};
   my ($physStart,$physEnd) = @{$bread};
+  my ($MRstart,$MRend)     = @{$meat};
 
+  # MR times cannot be outside physio range
   croak sprintf("ERROR: MR starts ($MRstart) %.2f min before physio ($physStart)",
 		($physStart-$MRstart)/60)
     if( $MRstart  < $physStart );
@@ -717,6 +718,9 @@ sub sandwichIdx {
   my $eIdxE = $n     - timeToSamples($bread->[1],$meat->[1],$r );
   my $sIdxE = $eIdxE - timeToSamples($meat->[0], $meat->[1],$r );
 
+  my $total_mr_time=($eIdxS - $sIdxS)*$r;
+  say "# calced: mr idx as $sIdxS to $eIdxS using ${r}Hz";
+  say "# n=",($eIdxS - $sIdxS), " t=", $total_mr_time, "s";
   # are the two the same?
   carp "Inconsistant index calculation. ".
        "Using start time vs end time as ref grabs different sample of measurements\n".
@@ -742,8 +746,12 @@ sub sayIndex {
  my $s  = $self->{MRstartIdx} || undef;
  my $e  = $self->{MRendIdx}   || undef;
  # lets talk about what we have
- say "(ps  ) $self->{physStart}  | MR $self->{MRstart} $self->{MRend} | $self->{physEnd} (pe)  ";
- say "(sidx) $ps          | MR $s  $e     | $pe   (eidx)" if $s and $e;
+ say "# extracting MR window from Physio";
+ say "# $ps        \t| MR $s    \t$e      \t| $pe   (index)" if $s and $e;
+ say "# $self->{physStart}\t| MR $self->{MRstart}\t$self->{MRend}\t| $self->{physEnd} (seconds)  ";
+ say "MR: $self->{TR}s*$self->{nDcms}vol=",  $self->{TR}*$self->{nDcms}, "s total";
+ say "Ph for MR: ";
+ say " n=", $e-$s, "samples*",substr($self->{PhRate},0,6),"hz t=", ($e-$s)*$self->{PhRate}, "s";
 
 }
 

@@ -41,3 +41,4 @@ my ($s,$e) = sandwichIdx([0,100],[10,50], 50, 2);
 ok( $s  == 5, "sandwitch simple: start"  );
 ok( $e  == 25, "sandwitch simple: end"  );
 
+ok((1,5) == idxTR(1,5000,2,3,4,5,5000,6,7,8))
