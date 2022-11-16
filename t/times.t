@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 use strict; use warnings;
-use Test::Simple tests=>17;
+use Test2::V0;
 
 use App::AFNI::SiemensPhysio;
 use feature 'say';
@@ -10,6 +10,7 @@ sub getMRAcqSecs { App::AFNI::SiemensPhysio::getMRAcqSecs(@_) };
 sub timeCheck    { App::AFNI::SiemensPhysio::timeCheck(@_)};
 sub timeToSamples{ App::AFNI::SiemensPhysio::timeToSamples(@_) };
 sub sandwichIdx  { App::AFNI::SiemensPhysio::sandwichIdx(@_) };
+sub idxTR        { App::AFNI::SiemensPhysio::idxTR(@_) };
 
 # check that we convert dicom to seconds succesfully
 ok(getMRAcqSecs('000000.0010') == .001);
@@ -41,4 +42,6 @@ my ($s,$e) = sandwichIdx([0,100],[10,50], 50, 2);
 ok( $s  == 5, "sandwitch simple: start"  );
 ok( $e  == 25, "sandwitch simple: end"  );
 
-ok((1,5) == idxTR(1,5000,2,3,4,5,5000,6,7,8))
+is([1,5,8],[idxTR(0,1,5000,2,3,4,5,5000,6,7,8,5000,9)]);
+is([-1,5,8],[idxTR(5000,0,1,2,3,4,5,5000,6,7,8,5000,9)]);
+done_testing;

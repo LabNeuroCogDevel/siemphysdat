@@ -1,3 +1,3 @@
 .PHONY: test
 test:
-	prove -l
+	prove -l --nocolor

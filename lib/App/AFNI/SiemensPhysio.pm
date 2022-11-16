@@ -154,12 +154,14 @@ sub new {
 }
 
 sub idxTR {
-   my @measures = $@;
+   my @measures = @_;
    my @acc_i = ();
    for my $i (0..$#measures) {
-       push @acc_i, $i - $#acc_i if $measures[$i] == 5000;
+       # -2 b/c want before and $# == 0 if 1 element
+       # if 5000 is first, call idx -1
+       push @acc_i, ($i - $#acc_i -2) if($measures[$i] == 5000);
    }
-   return @measures;
+   return @acc_i;
 }
 
 =head2 readPhysio
@@ -214,7 +216,7 @@ sub readPhysio {
    $self->{raw_measures} = [ split(/\W+/,$values) ];
    $self->{measures} = [ grep { $_ < 5000 } @{$self->{raw_measures}} ];
 
-   # index of each 5000 -- scanner TR
+   # index where scanner TR is recordded (value=5000)
    $self->{idxTR} = idxTR(@{$self->{raw_measures}});
 
    # get settings matching 
