@@ -48,5 +48,5 @@ is([-1,5,8],[idxTR(5000,0,1,2,3,4,5,5000,6,7,8,5000,9)]);
 
 
 is(meandiff(1..10),1);
-is(meandiff(0,5,10),5);
+is(meandiff(0,0,10),5);
 done_testing;
