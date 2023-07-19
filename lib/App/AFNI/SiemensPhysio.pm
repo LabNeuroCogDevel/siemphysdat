@@ -461,6 +461,13 @@ sub writeMRPhys {
  writeDat($outfile,@pvals)
 }
 
+sub meandiff {
+   my @a=@_;
+   my $sum=0;
+   for(1..$#a){ $sum+=$a[$_]-$a[$_-1];}
+   return $sum/$#a;
+}
+
 =head2 checkTRfreq
 Use count of '5000' in sequence to check sample frequence and TR
 =cut
@@ -470,6 +477,10 @@ sub checkTRfreq {
    my $end = $self->{'MRendIdx'};
    #say "#s $start, e $end, n: $self->{nDcms}";
    my @trs = grep {$_ >= $start && $_ <= $end} @{$self->{idxTR}};
+
+   my $tr_samprate = meandiff @trs;
+   print "# avg num samples between pulses: $tr_samprate => ",
+$tr_samprate*$self->{PhRate},"s TR\n";
    # not a good check!
    # demo data: 4573 5000s in puls, instead of 200!?
    carp "MR nVols mismatch: $self->{nDcms} != $#trs trigger=5000 in '$self->{ptype}' (phys idx $start and $end)" if

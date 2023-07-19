@@ -11,6 +11,7 @@ sub timeCheck    { App::AFNI::SiemensPhysio::timeCheck(@_)};
 sub timeToSamples{ App::AFNI::SiemensPhysio::timeToSamples(@_) };
 sub sandwichIdx  { App::AFNI::SiemensPhysio::sandwichIdx(@_) };
 sub idxTR        { App::AFNI::SiemensPhysio::idxTR(@_) };
+sub meandiff     { App::AFNI::SiemensPhysio::meandiff(@_) };
 
 # check that we convert dicom to seconds succesfully
 ok(getMRAcqSecs('000000.0010') == .001);
@@ -44,4 +45,8 @@ ok( $e  == 25, "sandwitch simple: end"  );
 
 is([1,5,8],[idxTR(0,1,5000,2,3,4,5,5000,6,7,8,5000,9)]);
 is([-1,5,8],[idxTR(5000,0,1,2,3,4,5,5000,6,7,8,5000,9)]);
+
+
+is(meandiff(1..10),1);
+is(meandiff(0,5,10),5);
 done_testing;
